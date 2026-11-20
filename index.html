@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#FDFBF7">
+<title>Диктофон — Тейблтайм</title>
+<script>
+  // Тема применяется до отрисовки, чтобы не было мигания
+  try {
+    if (localStorage.getItem('diktofon-theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  } catch (e) {}
+</script>
+<style>
+  :root{
+    --bg:#FDFBF7;
+    --desktop-bg:#EDE8DE;
+    --ink:#1E1A17;
+    --card:#FFFFFF;
+    --accent:#FF5A36;
+    --green:#2A9D5C;
+    --red:#D64545;
+    --muted:#8A8070;
+    --card-back:#D64545;
+    --card-back-text:#FFFFFF;
+    --input-bg:#FFFFFF;
+    --row-bg:#F7F3EA;
+    --border-subtle:rgba(30,26,23,.2);
+    --dot-color:rgba(30,26,23,.06);
+    --track-bg:rgba(30,26,23,.1);
+    --feature-bg:#1E1A17;
+    --feature-text:#FFFDF7;
+  }
+  html[data-theme="dark"]{
+    --bg:#1A1815;
+    --desktop-bg:#0D0C0B;
+    --ink:#F2EDE4;
+    --card:#262220;
+    --accent:#FF6B47;
+    --green:#3BB974;
+    --red:#E05D5D;
+    --muted:#8A8070;
+    --card-back:#CC4444;
+    --card-back-text:#FFFFFF;
+    --input-bg:#322D29;
+    --row-bg:#2E2A26;
+    --border-subtle:rgba(255,255,255,.15);
+    --dot-color:rgba(255,255,255,.035);
+    --track-bg:rgba(255,255,255,.1);
+    --feature-bg:#332D29;
+    --feature-text:#F2EDE4;
+  }
+
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    overflow: hidden;
+    background: var(--desktop-bg);
+    transition: background-color .3s ease;
+  }
+
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    color:var(--ink);
+    overscroll-behavior:none;
+    display: flex;
+    justify-content: center;
+  }
+
+  #app{
+    position: relative; width: 100%; max-width: 560px;
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    background-color: var(--bg);
+    background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
+    background-size: 16px 16px;
+    box-shadow: 0 0 40px rgba(0,0,0,.15);
+    transition: background-color .3s ease;
+  }
+
+  .screen{
+    position:absolute;inset:0;
+    display:none;flex-direction:column;
+    padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+    overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width: none;
+  }
+  .screen::-webkit-scrollbar { display: none; }
+  .screen.active{display:flex;animation:screenIn .25s ease;}
+  @keyframes screenIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  /* --- Кнопка темы --- */
+  .theme-toggle{
+    position: absolute;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: 16px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 2.5px solid var(--ink);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 20;
+    box-shadow: 0 2px 0 var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: transform .08s, box-shadow .08s, background-color .3s, border-color .3s;
+  }
+  .theme-toggle:active{
+    transform: translateY(2px);
+    box-shadow: 0 0 0 var(--ink);
+  }
+
+  .logo{text-align:center;margin:6px 0 16px;}
+  .logo-badge{font-size:40px;line-height:1;}
+  .logo h1{font-size:clamp(28px,8vw,36px);font-weight:900;letter-spacing:-.03em;margin:6px 0 4px;}
+  .logo .sub{margin:0;color:var(--muted);font-weight:700;font-size:14px;}
+
+  .card{
+    background:var(--card);border:3px solid var(--ink);border-radius:16px;
+    padding:14px;margin-bottom:12px;box-shadow:0 4px 0 var(--ink);
+    flex-shrink: 0;
+    transition: background-color .3s ease, border-color .3s ease;
+  }
+  .card h2{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:900;}
+
+  .row{display:flex;gap:8px;align-items:center;}
+  .row.between{justify-content:space-between;}
+
+  input{
+    flex:1;min-width:0;font:inherit;font-size:16px;font-weight:700;
+    padding:11px 14px;border:3px solid var(--ink);border-radius:12px;
+    background:var(--input-bg);color:var(--ink);outline:none;
+    transition: background-color .3s, border-color .3s, color .3s;
+  }
+  input:focus{box-shadow:0 0 0 3px rgba(255,90,54,.25);}
+
+  .btn{
+    font:inherit;font-weight:800;font-size:16px;
+    background:var(--card);color:var(--ink);
+    border:3px solid var(--ink);border-radius:12px;
+    padding:12px 18px;cursor:pointer;
+    box-shadow:0 4px 0 var(--ink);
+    transition:transform .08s, box-shadow .08s, background-color .3s, color .3s, border-color .3s;
+    user-select:none;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 0 0 var(--ink);}
+  .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 4px 0 rgba(0,0,0,.25);}
+  .btn-primary:active{box-shadow:0 0 0 rgba(0,0,0,.25);}
+  .btn-green{background:var(--green);color:#fff;}
+  .btn-red{background:var(--red);color:#fff;}
+  .btn-big{width:100%;padding:17px;font-size:18px;}
+  .btn-ghost{background:transparent;box-shadow:none;border-width:2px;font-weight:800;font-size:14px;padding:10px 14px;}
+  .btn-ghost.active{background:var(--ink);color:var(--card);}
+  .btn-square{width:50px;height:50px;padding:0;font-size:26px;line-height:1;flex:none;display:flex;align-items:center;justify-content:center;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    background:var(--card);border:2.5px solid var(--ink);border-radius:99px;
+    padding:6px 12px;font-weight:800;font-size:14px;
+    color:var(--ink); 
+    transition: background-color .3s, color .3s, border-color .3s;
+  }
+  .chip.option{cursor:pointer;transition:transform .1s, background .15s, color .15s, border-color .3s;}
+  .chip.option:active{transform:scale(.96);}
+  .chip.option.active{background:var(--ink);color:var(--card);}
+
+  .players-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+  .players-empty{
+    padding:16px;text-align:center;font-weight:700;font-size:13px;color:var(--muted);
+    border:2.5px dashed var(--border-subtle);border-radius:12px;
+  }
+  .player-row{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 12px;background:var(--row-bg);border-radius:11px;
+    font-weight:800;font-size:15px; animation:screenIn .2s ease;
+    transition: background-color .3s;
+  }
+  .player-num{
+    width:26px;height:26px;background:var(--ink);color:var(--card);
+    border-radius:8px;font-size:13px;font-weight:900;
+    display:flex;align-items:center;justify-content:center;flex:none;
+    transition: background-color .3s, color .3s;
+  }
+  .player-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .player-del{border:none;background:none;font-size:17px;cursor:pointer;color:var(--muted);padding:2px 8px;line-height:1;flex:none;}
+  .player-del:active{color:var(--red);}
+
+  .title-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+  .title-row h2{margin:0;}
+  .title-count{color:var(--ink);font-weight:900;}
+  .btn-mini{font-size:12px;padding:6px 10px;border-width:2px;box-shadow:0 2px 0 var(--ink);}
+  .btn-mini:active{box-shadow:0 0 0 var(--ink);transform:translateY(2px);}
+
+  .hint{text-align:center;font-size:13px;font-weight:700;color:var(--muted);margin:10px 0 20px; flex-shrink: 0;}
+  .hint.warn{color:var(--red);}
+
+  .handoff{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center;padding-bottom:24px;}
+  .round-tag{
+    display:inline-block;align-self:center;
+    background:var(--accent);color:#fff;
+    font-weight:900;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+    padding:6px 14px;border-radius:99px;margin:0;
+    transition: background-color .3s;
+  }
+  .handoff-label{margin:0;color:var(--muted);font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:12px;}
+  .artist-name{font-size:clamp(36px,11vw,56px);font-weight:900;letter-spacing:-.03em;line-height:1;}
+  .info-card{text-align:left;margin-top:6px;}
+  .info-card p{margin:0 0 8px;font-size:14px;font-weight:700;line-height:1.35;color:var(--ink);opacity:.85;}
+  .info-card p:last-child{margin-bottom:0;}
+
+  .draw-head{display:flex;justify-content:space-between;align-items:center;font-weight:900;font-size:13px;color:var(--muted);margin-bottom:8px;gap:10px;flex:none;}
+  .draw-artist{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .timerbar{height:8px;background:var(--track-bg);border-radius:99px;overflow:hidden;margin-bottom:10px;flex:none;transition:background-color .3s;}
+  #timerbar-fill{height:100%;width:0%;background:var(--accent);border-radius:99px;}
+
+  .now-card{
+    display:flex;align-items:center;gap:12px;
+    background:var(--feature-bg);color:var(--feature-text);
+    border-radius:16px;padding:12px 16px;margin-bottom:12px;
+    min-height:74px;flex:none;
+    box-shadow:0 5px 0 rgba(0,0,0,.25);
+    transition: background-color .3s, color .3s;
+  }
+  .now-num{
+    background:var(--accent);color:#fff;font-weight:900;font-size:15px;
+    min-width:36px;height:36px;border-radius:10px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    transition: background-color .3s;
+  }
+  .now-word{font-size:clamp(22px,6.5vw,34px);font-weight:900;letter-spacing:-.02em;line-height:1.05;}
+  
+  .rec-dot {
+    margin-left: auto;
+    width: 12px; height: 12px;
+    background: #ff3333;
+    border-radius: 50%;
+    opacity: 0;
+    box-shadow: 0 0 8px #ff3333;
+    flex: none;
+  }
+  .rec-dot.active {
+    opacity: 1;
+    animation: pulseRec 0.8s infinite alternate;
+  }
+  @keyframes pulseRec {
+    from { opacity: 0.3; box-shadow: 0 0 2px #ff3333; }
+    to { opacity: 1; box-shadow: 0 0 10px #ff3333; }
+  }
+
+  @keyframes wordPop{0%{transform:scale(.85);opacity:0;}55%{transform:scale(1.06);opacity:1;}100%{transform:scale(1);}}
+
+  .draw-controls{display:flex;gap:8px;margin-top:12px;padding-bottom:4px;flex:none;}
+  .draw-controls .btn{flex:1;}
+
+  .grid{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:6px;
+    width:min(100%,460px);margin:0 auto;flex-shrink: 0;
+    transform-origin: center center;
+  }
+  
+  @keyframes shuffleMix {
+    0% { transform: scale(1) rotate(0deg); opacity: 1; }
+    20% { transform: scale(0.85) rotate(-3deg); opacity: 0.8; }
+    40% { transform: scale(0.85) rotate(3deg); opacity: 0.8; }
+    60% { transform: scale(0.85) rotate(-2deg); opacity: 0.8; }
+    80% { transform: scale(0.95) rotate(1deg); opacity: 0.9; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .grid.shuffling { animation: shuffleMix 0.8s ease-in-out; }
+  .grid.shuffling .cell-inner { transition: none; }
+
+  .cell{aspect-ratio:1/1;perspective:700px;position:relative;}
+  .cell-inner{
+    position:absolute;inset:0;transform-style:preserve-3d;
+    transition:transform .55s cubic-bezier(.25,.9,.35,1.15);
+  }
+  .cell.flipped .cell-inner{transform:rotateY(180deg);}
+  .face{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    border:2.5px solid var(--ink);border-radius:10px;overflow:hidden;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    padding:3px;text-align:center;
+    transition: background-color .3s, border-color .3s, color .3s;
+  }
+
+  /* Рубашка: красная с эмодзи диктофона */
+  .face.front{
+    background: var(--card-back);
+    color: var(--card-back-text);
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px;
+  }
+  .face.front .mic{
+    font-size: clamp(18px, 4.8vw, 28px);
+    line-height: 1;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+  }
+  .face.front .num{
+    font-weight: 900;
+    font-size: clamp(12px, 3.2vw, 16px);
+    line-height: 1;
+    opacity: .95;
+  }
+
+  /* Лицо: белое с словом */
+  .face.back{
+    background: var(--card);
+    color: var(--ink);
+    transform: rotateY(180deg);
+  }
+  .face.back .word{
+    font-weight: 800;
+    font-size: clamp(7px, 2.1vw, 11px);
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  .quiz-cell{cursor:pointer;}
+  .quiz-cell.asked{cursor:default;}
+  .cell.selected .cell-inner{transform:translateY(-4px) scale(1.03);}
+  .cell.selected .face.front{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent);}
+
+  .quiz-head{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:900;color:var(--muted);margin-bottom:8px;flex-wrap:wrap;flex:none;}
+  .q-asker b{color:var(--ink);}
+  .q-instruction{margin:0 0 10px;font-size:14px;font-weight:800;text-align:center;color:var(--ink);opacity:.85;flex:none;}
+  .q-actions{margin-top:12px;flex:none; padding-bottom: 20px;}
+
+  .panel{
+    background:var(--card);border:3px solid var(--ink);border-radius:16px;
+    padding:14px;box-shadow:0 4px 0 var(--ink);animation:screenIn .2s ease;
+    transition: background-color .3s, border-color .3s;
+  }
+  .panel-title{font-weight:900;font-size:20px;margin-bottom:2px;}
+  .panel-sub{font-weight:800;font-size:14px;color:var(--muted);margin-bottom:12px;}
+  .panel-sub:last-child{margin-bottom:0;}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--feature-bg); color:var(--feature-text);
+    padding:12px 20px; border-radius:12px;
+    font-weight:900; font-size:15px; line-height:1.2;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s, transform .25s, background-color .3s;
+    z-index:100; max-width:calc(100% - 32px); width: max-content;
+    text-align:center; box-shadow:0 4px 0 rgba(0,0,0,.35);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast-word{display:block;font-size:12px;font-weight:700;opacity:.7;margin-top:4px;}
+  .toast.ok{background:var(--green);}
+  .toast.bad{background:var(--red);}
+
+  .scoreboard{display:flex;flex-direction:column;gap:6px;}
+  .score-row{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+    background:var(--row-bg);font-weight:800;
+    transition: background-color .3s, color .3s;
+  }
+  .score-row.lead{background:var(--feature-bg);color:var(--feature-text);}
+  .score-row.lead .score-pts{color:#FFD76A;}
+  .rank{width:28px;text-align:center;font-size:16px;flex:none;}
+  .score-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .score-pts{font-size:18px;font-weight:900;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <section class="screen active" id="screen-setup">
+    <button class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">🌙</button>
+
+    <div class="logo">
+      <div class="logo-badge">🎙️</div>
+      <h1>ДИКТОФОН</h1>
+      <p class="sub">25 слов · 25 клеток · успей зарисовать</p>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>Игроки <span class="title-count" id="players-count">(0)</span></h2>
+        <button class="btn btn-ghost btn-mini" id="clear-players">Удалить всех</button>
+      </div>
+      <div class="players-list" id="players-list"></div>
+      <div class="row">
+        <input id="player-input" placeholder="Имя (можно без имени)" maxlength="16" autocomplete="off">
+        <button class="btn btn-square" id="add-player" aria-label="Добавить">+</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>Категории слов <span class="title-count" id="category-count">(1)</span></h2>
+        <button class="btn btn-ghost btn-mini" id="category-all">Все</button>
+      </div>
+      <div class="chips" id="category-chips"></div>
+      <p style="margin:10px 0 0;font-size:12px;font-weight:700;color:var(--muted)">Можно выбрать несколько — слова смешаются</p>
+    </div>
+
+    <div class="card">
+      <h2>Темп (сек на слово)</h2>
+      <div class="chips" id="speed-chips"></div>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>Вопросов за раунд</h2>
+        <span class="title-count" style="font-size:11px;color:var(--muted)">(кратно игрокам)</span>
+      </div>
+      <div class="chips" id="questions-chips"></div>
+    </div>
+
+    <div class="card row between" style="margin-bottom:16px">
+      <span style="font-weight:800">🔊 Озвучка слов</span>
+      <button class="btn btn-ghost active" id="sound-toggle">Вкл</button>
+    </div>
+
+    <button class="btn btn-primary btn-big" id="start-btn" style="flex-shrink: 0;">Начать игру</button>
+    <p class="hint" id="setup-hint">Добавьте минимум 2 игроков</p>
+  </section>
+
+  <section class="screen" id="screen-handoff">
+    <div class="handoff">
+      <p class="round-tag" id="handoff-round">Раунд 1</p>
+      <p class="handoff-label">Художник</p>
+      <div class="artist-name" id="handoff-artist">—</div>
+      <div class="card info-card">
+        <p>🖊️ Приготовь лист с 25 клетками и ручку</p>
+        <p>📱 Слова будут появляться на поле — зарисовывай каждое в его клетку</p>
+        <p>🙈 Остальные, не подсказывайте</p>
+      </div>
+      <button class="btn btn-primary btn-big" id="handoff-start">Поехали ▶</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-draw">
+    <div class="draw-head">
+      <span id="draw-counter">Слово 1 / 25</span>
+      <span class="draw-artist" id="draw-artist"></span>
+    </div>
+    <div class="timerbar"><div id="timerbar-fill"></div></div>
+    <div class="now-card">
+      <span class="now-num" id="now-num">1</span>
+      <span class="now-word" id="now-word">—</span>
+      <div class="rec-dot" id="rec-dot"></div>
+    </div>
+    <div class="grid" id="draw-grid"></div>
+    <div class="draw-controls">
+      <button class="btn" id="draw-next">Пропустить ⏭</button>
+      <button class="btn btn-ghost" id="draw-finish">К вопросам</button>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-quiz">
+    <div class="quiz-head">
+      <span id="q-progress">Вопрос 1 / 5</span>
+      <span class="q-asker" id="q-asker">Спрашивает: —</span>
+    </div>
+    <p class="q-instruction" id="q-instruction">Выберите клетку…</p>
+    <div class="grid" id="quiz-grid"></div>
+    <div class="q-actions" id="q-actions"></div>
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <section class="screen" id="screen-round">
+    <div class="logo">
+      <div class="logo-badge">🏁</div>
+      <h1>Раунд окончен</h1>
+      <p class="sub" id="round-sub">—</p>
+    </div>
+    <div class="card">
+      <h2>Общий счёт</h2>
+      <div class="scoreboard" id="round-scoreboard"></div>
+    </div>
+    <button class="btn btn-primary btn-big" id="round-next">Следующий раунд ▶</button>
+  </section>
+
+  <section class="screen" id="screen-final">
+    <div class="logo">
+      <div class="logo-badge" style="font-size:56px">🏆</div>
+      <h1>Игра окончена</h1>
+      <p class="sub">Сильнейший художник и самый въедливый вопросник</p>
+    </div>
+    <div class="card">
+      <h2>Итоговый счёт</h2>
+      <div class="scoreboard" id="final-scoreboard"></div>
+    </div>
+    <button class="btn btn-primary btn-big" id="restart-btn">Играть снова</button>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+
+  const CATEGORIES = {
+    objects: { name:'Предметы', words:['стол','бочка','чайник','лестница','зонт','ключ','лампочка','ножницы','чемодан','гитара','зеркало','кресло','вешалка','телевизор','карандаш','будильник','швабра','табуретка','рюкзак','вентилятор','подушка','гвоздь','коробка','термометр','холодильник'] },
+    food:    { name:'Еда', words:['арбуз','пицца','банан','торт','мороженое','суши','бургер','яичница','огурец','сыр','гриб','кукуруза','лимон','шоколад','пельмени','кекс','ананас','сосиска','помидор','вишня','хлеб','кофе','клубника','попкорн','макароны'] },
+    animals: { name:'Животные', words:['слон','пингвин','жираф','кот','ёж','крокодил','сова','черепаха','кит','пчела','змея','обезьяна','лягушка','страус','осьминог','лиса','медведь','курица','бабочка','паук','дельфин','верблюд','олень','акула','хомяк'] },
+    actions: { name:'Действия', words:['прыгать','спать','плавать','готовить','чихать','танцевать','ловить','падать','звонить','копать','пилить','обнимать','кричать','рисовать','летать','мыть','пить','бежать','смеяться','бросать','гладить','качаться','фотографировать','играть','строить'] },
+    abstract:{ name:'Абстракции', words:['любовь','время','страх','идея','дружба','сон','музыка','скорость','тайна','свобода','память','вкус','тишина','удача','сила','красота','грусть','вопрос','мечта','шум','свет','правда','движение','покой','ожидание'] },
+    professions: { name:'Профессии', words:['врач','учитель','полицейский','пожарный','космонавт','повар','водитель','программист','художник','актер','певец','инженер','строитель','пилот','моряк','военный','юрист','ветеринар','ученый','фотограф','дизайнер','курьер','официант','фокусник','пират'] },
+    sports: { name:'Спорт', words:['футбол','баскетбол','волейбол','теннис','хоккей','плавание','бокс','борьба','гимнастика','фигурное катание','лыжи','сноуборд','гольф','регби','бейсбол','дартс','бильярд','шахматы','шашки','киберспорт','бег','прыжки в высоту','метание копья','тяжелая атлетика','стрельба'] },
+    places: { name:'Места', words:['пляж','горы','лес','город','деревня','офис','школа','больница','аэропорт','вокзал','метро','театр','музей','зоопарк','парк','кафе','ресторан','магазин','рынок','банк','тюрьма','замок','пустыня','космос','океан'] },
+    fantasy: { name:'Фэнтези', words:['дракон','единорог','эльф','гном','орк','тролль','фея','русалка','вампир','оборотень','зомби','призрак','ведьма','колдун','рыцарь','принцесса','замок','меч','щит','волшебная палочка','зелье','ковер-самолет','магия','портал','сокровище'] }
+  };
+
+  const MAX_PLAYERS = 12;
+
+  const state = {
+    players: [],
+    draft: [],
+    categories: ['objects'],
+    speed: 3,
+    questions: 6,
+    sound: true,
+    round: 0,
+    words: [],
+    quiz: null
+  };
+
+  let wordIndex = -1;
+  let drawingActive = false;
+  let quizStarted = false;
+  let drawTimer = null;
+  let activeFlipCell = null;
+  let flipHideTimer = null;
+  let toastTimeout = null;
+
+  function shuffle(arr){
+    const a = [...arr];
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function show(name){
+    $$('.screen').forEach(s => {
+      const on = s.id === 'screen-' + name;
+      s.classList.toggle('active', on);
+      if(on) s.scrollTop = 0;
+    });
+  }
+
+  /* ---------- Тема ---------- */
+  const themeToggle = $('#theme-toggle');
+  function applyTheme(theme){
+    if(theme === 'dark'){
+      document.documentElement.setAttribute('data-theme', 'dark');
+      themeToggle.textContent = '☀️';
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#1A1815');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      themeToggle.textContent = '🌙';
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#FDFBF7');
+    }
+    try { localStorage.setItem('diktofon-theme', theme); } catch (e) {}
+  }
+  // Применяем сохранённую тему (или light) и выставляем иконку
+  (function initTheme(){
+    let saved = 'light';
+    try { saved = localStorage.getItem('diktofon-theme') || 'light'; } catch (e) {}
+    applyTheme(saved);
+  })();
+  themeToggle.addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    applyTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---------- Озвучка ---------- */
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+  }
+
+  function speak(text){
+    if(!state.sound || !('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      u.rate = 0.85;
+      u.pitch = 0.9;
+      const voices = window.speechSynthesis.getVoices();
+      const ruVoice = voices.find(v => v.lang && v.lang.toLowerCase().indexOf('ru') === 0);
+      if(ruVoice) u.voice = ruVoice;
+      setTimeout(() => { window.speechSynthesis.speak(u); }, 50);
+    }catch(e){}
+  }
+
+  function showToast(mainText, subText, kind){
+    const t = $('#toast');
+    t.className = 'toast show' + (kind ? ' ' + kind : '');
+    t.innerHTML =
+      '<div>' + escapeHtml(mainText) + '</div>' +
+      (subText ? '<span class="toast-word">' + escapeHtml(subText) + '</span>' : '');
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => { t.classList.remove('show'); }, 2200);
+  }
+  function hideToast(){
+    clearTimeout(toastTimeout);
+    $('#toast').classList.remove('show');
+  }
+
+  /* ---------- Игроки ---------- */
+  function autoPlayerName(){
+    const existing = new Set(state.draft.map(n => n.toLowerCase()));
+    let n = 1;
+    while(existing.has(('игрок ' + n).toLowerCase())) n++;
+    return 'Игрок ' + n;
+  }
+
+  function renderPlayers(){
+    const box = $('#players-list');
+    box.innerHTML = '';
+
+    if(state.draft.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'players-empty';
+      empty.textContent = 'Пока никого. Добавьте первого игрока ↓';
+      box.appendChild(empty);
+    } else {
+      state.draft.forEach((name, i) => {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        row.innerHTML =
+          '<span class="player-num">' + (i+1) + '</span>' +
+          '<span class="player-name">' + escapeHtml(name) + '</span>' +
+          '<button class="player-del" aria-label="Удалить">✕</button>';
+        row.querySelector('.player-del').addEventListener('click', () => {
+          state.draft.splice(i, 1);
+          renderPlayers();
+        });
+        box.appendChild(row);
+      });
+    }
+
+    $('#players-count').textContent = '(' + state.draft.length + ')';
+
+    const hint = $('#setup-hint');
+    if(state.draft.length < 2){
+      hint.textContent = 'Добавьте минимум 2 игроков';
+      hint.classList.remove('warn');
+    } else {
+      hint.textContent = 'Раундов будет ' + state.draft.length + ' — каждый побудет художником';
+      hint.classList.remove('warn');
+    }
+
+    buildQuestionsOptions();
+  }
+
+  function addPlayerFromInput(){
+    const inp = $('#player-input');
+    const raw = inp.value.trim();
+    inp.value = '';
+    if(state.draft.length >= MAX_PLAYERS) return;
+
+    const name = raw || autoPlayerName();
+    if(state.draft.some(n => n.toLowerCase() === name.toLowerCase())) return;
+
+    state.draft.push(name);
+    renderPlayers();
+    // inp.focus() специально убран — чтобы не всплывала клавиатура
+  }
+
+  $('#add-player').addEventListener('click', addPlayerFromInput);
+  $('#player-input').addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); addPlayerFromInput(); }
+  });
+
+  $('#clear-players').addEventListener('click', () => {
+    if(state.draft.length === 0) return;
+    state.draft = [];
+    renderPlayers();
+  });
+
+  /* ---------- Категории ---------- */
+  function renderCategoryChips(){
+    const box = $('#category-chips');
+    box.innerHTML = '';
+    Object.entries(CATEGORIES).forEach(([key, cat]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip option' + (state.categories.includes(key) ? ' active' : '');
+      b.textContent = cat.name;
+      b.addEventListener('click', () => {
+        const idx = state.categories.indexOf(key);
+        if(idx >= 0){
+          if(state.categories.length === 1) return;
+          state.categories.splice(idx, 1);
+        } else {
+          state.categories.push(key);
+        }
+        renderCategoryChips();
+      });
+      box.appendChild(b);
+    });
+    $('#category-count').textContent = '(' + state.categories.length + ')';
+
+    const allKeys = Object.keys(CATEGORIES);
+    $('#category-all').textContent = state.categories.length === allKeys.length ? 'Сброс' : 'Все';
+  }
+
+  $('#category-all').addEventListener('click', () => {
+    const allKeys = Object.keys(CATEGORIES);
+    if(state.categories.length === allKeys.length){
+      state.categories = [allKeys[0]];
+    } else {
+      state.categories = [...allKeys];
+    }
+    renderCategoryChips();
+  });
+
+  /* ---------- Настройки ---------- */
+  function buildOptionChips(containerId, options, current, onPick){
+    const box = $('#' + containerId);
+    box.innerHTML = '';
+    options.forEach(opt => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip option' + (opt.value === current ? ' active' : '');
+      b.textContent = opt.label;
+      b.addEventListener('click', () => {
+        $$('.chip', box).forEach(c => c.classList.toggle('active', c === b));
+        onPick(opt.value);
+      });
+      box.appendChild(b);
+    });
+  }
+
+  buildOptionChips('speed-chips',
+    [{value:2,label:'2 сек'},{value:3,label:'3 сек'},{value:4,label:'4 сек'},{value:6,label:'6 сек'}],
+    state.speed,
+    v => { state.speed = v; }
+  );
+
+  function buildQuestionsOptions() {
+    const box = $('#questions-chips');
+    box.innerHTML = '';
+    
+    const askersCount = Math.max(1, state.draft.length - 1);
+    let options = [];
+
+    if (askersCount === 1) {
+      options = [3, 5, 7, 10];
+    } else {
+      options = [askersCount, askersCount * 2, askersCount * 3, askersCount * 4];
+    }
+
+    if (!options.includes(state.questions)) {
+      state.questions = options[1] || options[0];
+    }
+
+    options.forEach(val => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip option' + (val === state.questions ? ' active' : '');
+      b.textContent = val;
+      b.addEventListener('click', () => {
+        $$('.chip', box).forEach(c => c.classList.toggle('active', c === b));
+        state.questions = val;
+      });
+      box.appendChild(b);
+    });
+  }
+
+  $('#sound-toggle').addEventListener('click', () => {
+    state.sound = !state.sound;
+    const b = $('#sound-toggle');
+    b.textContent = state.sound ? 'Вкл' : 'Выкл';
+    b.classList.toggle('active', state.sound);
+  });
+
+  $('#start-btn').addEventListener('click', () => {
+    if(state.draft.length < 2){
+      const h = $('#setup-hint');
+      h.textContent = 'Нужно минимум 2 игрока 🙂';
+      h.classList.add('warn');
+      return;
+    }
+    if(state.categories.length === 0){
+      const h = $('#setup-hint');
+      h.textContent = 'Выберите хотя бы одну категорию';
+      h.classList.add('warn');
+      return;
+    }
+    state.players = state.draft.map(n => ({ name:n, score:0 }));
+    state.round = 0;
+    showHandoff();
+  });
+
+  /* ---------- Раунд ---------- */
+  function currentArtist(){
+    return state.players[state.round % state.players.length];
+  }
+
+  function showHandoff(){
+    $('#handoff-round').textContent = 'Раунд ' + (state.round + 1) + ' из ' + state.players.length;
+    $('#handoff-artist').textContent = currentArtist().name;
+    show('handoff');
+  }
+
+  function pickWords(){
+    const seen = new Set();
+    const unique = [];
+    state.categories.forEach(key => {
+      CATEGORIES[key].words.forEach(w => {
+        if(!seen.has(w)){ seen.add(w); unique.push(w); }
+      });
+    });
+    return shuffle(unique).slice(0, 25);
+  }
+
+  function cardHtml(i, word){
+    return '<div class="cell-inner">' +
+      '<div class="face front">' +
+        '<span class="mic">🎙️</span>' +
+        '<span class="num">' + (i+1) + '</span>' +
+      '</div>' +
+      '<div class="face back">' +
+        '<span class="word">' + escapeHtml(word) + '</span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  $('#handoff-start').addEventListener('click', () => {
+    if ('speechSynthesis' in window) {
+      try {
+        const unlock = new SpeechSynthesisUtterance('');
+        unlock.volume = 0;
+        window.speechSynthesis.speak(unlock);
+      } catch (e) {}
+    }
+    startDrawing();
+  });
+
+  function startDrawing(){
+    state.words = pickWords();
+    wordIndex = -1;
+    drawingActive = false;
+    quizStarted = false;
+    activeFlipCell = null;
+    clearTimeout(drawTimer);
+    clearTimeout(flipHideTimer);
+    hideToast();
+
+    $('#draw-artist').textContent = 'Художник: ' + currentArtist().name;
+    $('#draw-next').textContent = 'Пропустить ⏭';
+    $('#draw-counter').textContent = 'Перемешиваем колоду…';
+    $('#now-num').textContent = '🔀';
+    $('#now-word').textContent = '…';
+    $('#rec-dot').classList.remove('active');
+
+    const grid = $('#draw-grid');
+    grid.innerHTML = '';
+    state.words.forEach((w, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.innerHTML = cardHtml(i, w);
+      grid.appendChild(cell);
+    });
+
+    show('draw');
+    grid.classList.add('shuffling');
+    setTimeout(() => {
+      grid.classList.remove('shuffling');
+      drawingActive = true;
+      nextWord();
+    }, 850);
+  }
+
+  function animateBar(seconds){
+    const bar = $('#timerbar-fill');
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    void bar.offsetWidth;
+    bar.style.transition = 'width ' + seconds + 's linear';
+    bar.style.width = '100%';
+  }
+
+  function showWordOnCard(cell){
+    if(!cell) return;
+    if(activeFlipCell && activeFlipCell !== cell){
+      activeFlipCell.classList.remove('flipped');
+    }
+    clearTimeout(flipHideTimer);
+    activeFlipCell = cell;
+    setTimeout(() => cell.classList.add('flipped'), 40);
+  }
+
+  function nextWord(){
+    if(!drawingActive) return;
+    clearTimeout(drawTimer);
+    wordIndex++;
+
+    if(wordIndex >= state.words.length){
+      drawingActive = false;
+      clearTimeout(flipHideTimer);
+      if(activeFlipCell){ activeFlipCell.classList.remove('flipped'); activeFlipCell = null; }
+      $('#draw-counter').textContent = 'Готово!';
+      $('#now-num').textContent = '✓';
+      $('#now-word').textContent = 'Все 25 слов!';
+      $('#rec-dot').classList.remove('active');
+      $('#timerbar-fill').style.transition = 'none';
+      $('#timerbar-fill').style.width = '0%';
+      drawTimer = setTimeout(finishDrawing, 1100);
+      return;
+    }
+
+    const w = state.words[wordIndex];
+    $('#draw-counter').textContent = 'Слово ' + (wordIndex+1) + ' / ' + state.words.length;
+    $('#now-num').textContent = wordIndex + 1;
+
+    const nowWord = $('#now-word');
+    nowWord.textContent = w;
+    nowWord.style.animation = 'none';
+    void nowWord.offsetWidth;
+    nowWord.style.animation = 'wordPop .35s ease';
+
+    $('#rec-dot').classList.add('active');
+    speak(w);
+
+    const cell = $('#draw-grid').children[wordIndex];
+    showWordOnCard(cell);
+
+    animateBar(state.speed);
+    drawTimer = setTimeout(nextWord, state.speed * 1000);
+  }
+
+  $('#draw-next').addEventListener('click', () => { if(drawingActive) nextWord(); });
+
+  function finishDrawing(){
+    if(quizStarted) return;
+    quizStarted = true;
+    drawingActive = false;
+    clearTimeout(drawTimer);
+    clearTimeout(flipHideTimer);
+    if(activeFlipCell){ activeFlipCell.classList.remove('flipped'); activeFlipCell = null; }
+    if('speechSynthesis' in window){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+    startQuiz();
+  }
+  $('#draw-finish').addEventListener('click', () => { if(drawingActive) finishDrawing(); });
+
+  /* ---------- Вопросы ---------- */
+  function startQuiz(){
+    const artistIdx = state.round % state.players.length;
+    const artist = state.players[artistIdx];
+    const others = state.players.filter((_, i) => i !== artistIdx);
+    const queue = shuffle(others);
+
+    state.quiz = {
+      artist: artist,
+      queue: queue,
+      qIdx: 0,
+      asked: 0,
+      pending: null,
+      locked: false,
+      revealed: new Set(),
+      questioner: null
+    };
+
+    const grid = $('#quiz-grid');
+    grid.innerHTML = '';
+    state.words.forEach((w, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell quiz-cell';
+      cell.dataset.i = i;
+      cell.innerHTML = cardHtml(i, w);
+      grid.appendChild(cell);
+    });
+
+    show('quiz');
+    hideToast();
+    nextQuestion();
+  }
+
+  function nextQuestion(){
+    const q = state.quiz;
+    if(!q) return;
+    if(q.asked >= state.questions){ endQuestions(); return; }
+
+    q.pending = null;
+    q.locked = false;
+    q.questioner = q.queue[q.qIdx % q.queue.length];
+    q.qIdx++;
+
+    $('#q-progress').textContent = 'Вопрос ' + (q.asked + 1) + ' из ' + state.questions;
+    $('#q-asker').innerHTML = 'Спрашивает: <b>' + escapeHtml(q.questioner.name) + '</b>';
+    $('#q-instruction').textContent = 'Выберите клетку и спросите: «Что здесь нарисовано?»';
+    $('#q-actions').innerHTML = '';
+
+    $$('#quiz-grid .cell').forEach(c => c.classList.remove('selected'));
+  }
+
+  $('#quiz-grid').addEventListener('click', e => {
+    const q = state.quiz;
+    if(!q || q.locked) return;
+    const cell = e.target.closest('.cell');
+    if(!cell) return;
+    const i = Number(cell.dataset.i);
+    if(q.revealed.has(i)) return;
+
+    q.pending = i;
+    q.locked = true;
+    cell.classList.add('selected');
+    renderAnswerPanel(i);
+  });
+
+  function renderAnswerPanel(i){
+    $('#q-actions').innerHTML =
+      '<div class="panel">' +
+        '<div class="panel-title">Клетка ' + (i+1) + '</div>' +
+        '<div class="panel-sub">Художник, что здесь нарисовано?</div>' +
+        '<div class="row">' +
+          '<button class="btn btn-green" data-ans="1" style="flex:1">Ответил ✅</button>' +
+          '<button class="btn btn-red" data-ans="0" style="flex:1">Не ответил ❌</button>' +
+        '</div>' +
+      '</div>';
+    $$('#q-actions [data-ans]').forEach(b => {
+      b.addEventListener('click', () => handleAnswer(b.dataset.ans === '1'));
+    });
+  }
+
+  function handleAnswer(correct){
+    const q = state.quiz;
+    if(!q || !q.locked || q.pending === null) return;
+
+    const i = q.pending;
+    q.locked = false;
+    q.pending = null;
+
+    const word = state.words[i];
+    q.revealed.add(i);
+    q.asked++;
+
+    const cell = $('#quiz-grid .cell[data-i="' + i + '"]');
+    if(cell){
+      cell.classList.remove('selected');
+      cell.classList.add('flipped', 'asked');
+    }
+
+    let toastMain, toastSub;
+    if(correct){
+      q.artist.score++;
+      toastMain = '✅ +1 — ' + q.artist.name;
+      toastSub = 'Правильный ответ: «' + word + '»';
+    } else {
+      q.questioner.score++;
+      toastMain = '❌ +1 — ' + q.questioner.name;
+      toastSub = 'Художник не ответил. Слово: «' + word + '»';
+    }
+    showToast(toastMain, toastSub, correct ? 'ok' : 'bad');
+
+    if(q.asked >= state.questions){
+      q.locked = true;
+      setTimeout(endQuestions, 900);
+      return;
+    }
+    nextQuestion();
+  }
+
+  function endQuestions(){
+    const q = state.quiz;
+    if(!q) return;
+
+    q.locked = true;
+    q.pending = null;
+
+    $('#q-progress').textContent = 'Все вопросы заданы';
+    $('#q-asker').innerHTML = '';
+    $('#q-instruction').textContent = 'Открываем оставшиеся клетки…';
+    $('#q-actions').innerHTML = '';
+
+    const cells = $$('#quiz-grid .cell');
+    let delay = 0;
+    cells.forEach((c, idx) => {
+      if(!q.revealed.has(idx)){
+        const d = delay;
+        setTimeout(() => c.classList.add('flipped'), d);
+        delay += 55;
+      }
+    });
+
+    setTimeout(() => {
+      $('#q-instruction').textContent = 'Все 25 слов открыты — сверяйтесь с листиками!';
+      $('#q-actions').innerHTML = '<button class="btn btn-primary btn-big" id="to-round">Итоги раунда ▸</button>';
+      $('#to-round').addEventListener('click', showRoundResults);
+    }, delay + 500);
+  }
+
+  /* ---------- Итоги ---------- */
+  function renderScoreboard(box, players, medals){
+    const sorted = [...players].sort((a,b) => b.score - a.score);
+    box.innerHTML = sorted.map((p, i) => {
+      const rank = medals && i < 3 ? ['🥇','🥈','🥉'][i] : (i + 1);
+      return '<div class="score-row ' + (i === 0 ? 'lead' : '') + '">' +
+        '<span class="rank">' + rank + '</span>' +
+        '<span class="score-name">' + escapeHtml(p.name) + '</span>' +
+        '<span class="score-pts">' + p.score + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function showRoundResults(){
+    hideToast();
+    $('#round-sub').textContent = 'Художник: ' + currentArtist().name;
+    renderScoreboard($('#round-scoreboard'), state.players, false);
+
+    const isLast = state.round + 1 >= state.players.length;
+    const btn = $('#round-next');
+    btn.textContent = isLast ? 'Итоги игры 🏆' : 'Следующий раунд ▶';
+    btn.onclick = () => {
+      if(isLast){
+        renderScoreboard($('#final-scoreboard'), state.players, true);
+        show('final');
+      } else {
+        state.round++;
+        showHandoff();
+      }
+    };
+
+    show('round');
+  }
+
+  $('#restart-btn').addEventListener('click', () => {
+    state.players = [];
+    state.round = 0;
+    state.quiz = null;
+    state.words = [];
+    hideToast();
+    show('setup');
+    renderPlayers();
+  });
+
+  renderPlayers();
+  renderCategoryChips();
+})();
+</script>
+</body>
+</html>
